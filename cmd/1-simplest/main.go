@@ -45,6 +45,7 @@ func runEmitter(ctx context.Context) {
 		topic,
 		new(internal_codec.CloudEvent),
 		goka.WithEmitterLogger(internal_logger.NewGoKaZerolog(ctx)),
+		goka.WithEmitterProducerBuilder(goka.DefaultProducerBuilder),
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("error creating emitter: %v", err)
@@ -94,6 +95,7 @@ func runProcessor(ctx context.Context) {
 		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(tmc)),
 		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
 		goka.WithLogger(internal_logger.NewGoKaZerolog(ctx)),
+		goka.WithConsumerSaramaBuilder(goka.DefaultSaramaConsumerBuilder),
 	)
 	if err != nil {
 		log.Fatal().Msgf("error creating processor: %v", err)
