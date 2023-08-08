@@ -124,7 +124,7 @@ func main() {
 	ctx := context.Background()
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	// create a logger and add it to the context
-	log := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	log := zerolog.New(os.Stdout).With().Caller().Timestamp().Logger()
 	ctx = log.WithContext(ctx)
 
 	config := goka.DefaultConfig()
