@@ -10,4 +10,4 @@ The [codec](./internal/codec/cloud-events.go) is using ```protojson``` to marsha
 
 ## Logger
 
-For these example I am using [zerolog](github.com/rs/zerolog) as the replacement logger for [goka Logger](./internal/logger/goka-zerolog-logger.go).  
+For these example I am using [zerolog](https://github.com/rs/zerolog) as the replacement logger for [goka Logger](./internal/logger/goka-zerolog-logger.go).  
