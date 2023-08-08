@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	sarama "github.com/IBM/sarama"
-	cloudevents_pb "github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
+	internal_cloudevents "github.com/fluffy-bunny/goka-play/internal/cloudevents"
 	internal_codec "github.com/fluffy-bunny/goka-play/internal/codec"
+	internal_logger "github.com/fluffy-bunny/goka-play/internal/logger"
 	goka "github.com/lovoo/goka"
 	goka_codec "github.com/lovoo/goka/codec"
+	zerolog "github.com/rs/zerolog"
 )
 
 var (
@@ -39,53 +39,33 @@ func init() {
 }
 
 // emits a single message and leave
-func runEmitter() {
-	emitter, err := goka.NewEmitter(brokers, topic, new(internal_codec.CloudEvent))
+func runEmitter(ctx context.Context) {
+	log := zerolog.Ctx(ctx).With().Logger()
+	emitter, err := goka.NewEmitter(brokers,
+		topic,
+		new(internal_codec.CloudEvent),
+		goka.WithEmitterLogger(internal_logger.NewGoKaZerolog(ctx)),
+	)
 	if err != nil {
-		log.Fatalf("error creating emitter: %v", err)
+		log.Fatal().Err(err).Msgf("error creating emitter: %v", err)
 	}
 	defer emitter.Finish()
-	customData := &SomeCustomData{
-		Name: "John Doe",
-		Age:  42,
-	}
-	cdB, err := json.Marshal(customData)
+	ce, err := internal_cloudevents.MakeRandomCloudEvent(context.Background())
 	if err != nil {
-		log.Fatalf("error marshalling custom data: %v", err)
+		log.Fatal().Err(err).Msgf("error creating cloud event: %v", err)
 	}
-	ce := &cloudevents_pb.CloudEvent{
-		Id:          "1234",
-		Source:      "http://example.com",
-		Type:        "com.example.test",
-		SpecVersion: "1.0",
-		Attributes: map[string]*cloudevents_pb.CloudEventAttributeValue{
-			"orgid": {
-				Attr: &cloudevents_pb.CloudEventAttributeValue_CeString{
-					CeString: "ORGTest",
-				},
-			},
-			"canary": {
-				Attr: &cloudevents_pb.CloudEventAttributeValue_CeBoolean{
-					CeBoolean: true,
-				},
-			},
-			"content-type": {
-				Attr: &cloudevents_pb.CloudEventAttributeValue_CeString{
-					CeString: "application/json",
-				},
-			},
-		},
-		Data: &cloudevents_pb.CloudEvent_TextData{TextData: string(cdB)},
-	}
+
 	err = emitter.EmitSync("some-key", ce)
 	if err != nil {
-		log.Fatalf("error emitting message: %v", err)
+		log.Fatal().Err(err).Msgf("error emitting message: %v", err)
 	}
-	log.Println("message emitted")
+	log.Print("message emitted")
 }
 
 // process messages until ctrl-c is pressed
-func runProcessor() {
+func runProcessor(ctx context.Context) {
+	log := zerolog.Ctx(ctx).With().Logger()
+
 	// process callback is invoked for each message delivered from
 	// "example-stream" topic.
 	cb := func(ctx goka.Context, msg interface{}) {
@@ -113,9 +93,10 @@ func runProcessor() {
 		g,
 		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(tmc)),
 		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
+		goka.WithLogger(internal_logger.NewGoKaZerolog(ctx)),
 	)
 	if err != nil {
-		log.Fatalf("error creating processor: %v", err)
+		log.Fatal().Msgf("error creating processor: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -140,6 +121,12 @@ func runProcessor() {
 }
 
 func main() {
+	ctx := context.Background()
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	// create a logger and add it to the context
+	log := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	ctx = log.WithContext(ctx)
+
 	config := goka.DefaultConfig()
 	// since the emitter only emits one message, we need to tell the processor
 	// to read from the beginning
@@ -152,7 +139,7 @@ func main() {
 
 	tm, err := goka.NewTopicManager(brokers, goka.DefaultConfig(), tmc)
 	if err != nil {
-		log.Fatalf("Error creating topic manager: %v", err)
+		log.Fatal().Msgf("Error creating topic manager: %v", err)
 	}
 	defer tm.Close()
 	err = tm.EnsureStreamExists(string(topic), 8)
@@ -160,6 +147,6 @@ func main() {
 		log.Printf("Error creating kafka topic %s: %v", topic, err)
 	}
 
-	runEmitter()   // emits one message and stops
-	runProcessor() // press ctrl-c to stop
+	runEmitter(ctx)   // emits one message and stops
+	runProcessor(ctx) // press ctrl-c to stop
 }
