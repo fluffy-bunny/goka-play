@@ -10,7 +10,14 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/1-simplest",
-        },       
+        },
+        {
+            "name": "1-simplest-sasl",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/1-simplest-sasl",
+        },            
         {
             "name": "9-defer-commit - success",
             "type": "go",

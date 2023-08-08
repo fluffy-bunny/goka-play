@@ -2,6 +2,8 @@ module github.com/fluffy-bunny/goka-play
 
 go 1.20
 
+replace github.com/lovoo/goka => github.com/fluffy-bunny/goka v1.1.8
+
 require (
 	github.com/IBM/sarama v1.40.1
 	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.14.0
@@ -16,7 +18,6 @@ require (
 )
 
 require (
-	github.com/Shopify/sarama v1.37.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.3.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230111030713-bf00bc1b83b6 // indirect
