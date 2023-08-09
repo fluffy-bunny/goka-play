@@ -1,0 +1,15 @@
+
+org.apache.kafka.common.security.plain.PlainLoginModule required
+username="$ConnectionString"
+password="Endpoint=sb://herb-event-hub.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=QEHgyc1cK7K4V+nR0RTDQ73+iUVXr4tt7+AEhLQcwQ4=;EntityPath=cloudevents";
+
+org.apache.kafka.common.security.plain.PlainLoginModule required
+username="$ConnectionString"
+password="Endpoint=sb://herb-event-hub.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=QEHgyc1cK7K4V+nR0RTDQ73+iUVXr4tt7+AEhLQcwQ4=;EntityPath=cloudevents-deadletter";
+
+org.apache.kafka.common.security.plain.PlainLoginModule required
+username="$ConnectionString"
+password="Endpoint=sb://herb-event-hub.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=QEHgyc1cK7K4V+nR0RTDQ73+iUVXr4tt7+AEhLQcwQ4=;EntityPath=cloudevents-group-table";
+
+
+ 

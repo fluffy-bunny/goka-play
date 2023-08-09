@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,19 +18,13 @@ import (
 )
 
 var (
-	brokers  = []string{"goka-herb.servicebus.windows.net:9093"}
-	password = "Endpoint=sb://goka-herb.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=sN8gfVrU9GAqk79Hy4TDEgQAcAMZ6Ecg5+AEhDAQjcs="
+	brokers  = []string{"herb-event-hub.servicebus.windows.net:9093"}
+	password = "Endpoint=sb://herb-event-hub.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=QEHgyc1cK7K4V+nR0RTDQ73+iUVXr4tt7+AEhLQcwQ4="
 
 	topic goka.Stream = "cloudevents"
-	group goka.Group  = "example-group"
+	group goka.Group  = "cloudevents-group"
 
 	tmc *goka.TopicManagerConfig
-
-	certFile      = flag.String("certificate", "", "The optional certificate file for client authentication")
-	keyFile       = flag.String("key", "", "The optional key file for client authentication")
-	caFile        = flag.String("ca", "", "The optional certificate authority file for TLS client authentication")
-	tlsSkipVerify = flag.Bool("tls-skip-verify", false, "Whether to skip TLS server cert verification")
-	useTLS        = flag.Bool("tls", false, "Use TLS to communicate with the cluster")
 )
 
 type (
@@ -48,24 +41,7 @@ func init() {
 	tmc.Table.Replication = 1
 	tmc.Stream.Replication = 1
 }
-func getConfig2() *sarama.Config {
-	config := sarama.NewConfig()
-	config.Net.DialTimeout = 10 * time.Second
 
-	config.Net.SASL.Enable = true
-	config.Net.SASL.User = "$ConnectionString"
-	config.Net.SASL.Password = password
-	config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-
-	config.Net.TLS.Enable = true
-	config.Net.TLS.Config = &tls.Config{
-		InsecureSkipVerify: true,
-		ClientAuth:         0,
-	}
-	config.Version = sarama.V1_0_0_0
-	config.Producer.Return.Successes = true
-	return config
-}
 func getSASLConfig() *sarama.Config {
 	config := sarama.NewConfig()
 	config.Net.DialTimeout = 10 * time.Second
@@ -144,10 +120,11 @@ func runProcessor(ctx context.Context) {
 	saramaConfig := getSASLConfig()
 	p, err := goka.NewProcessor(brokers,
 		g,
-		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(tmc)),
-		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
-		goka.WithLogger(internal_logger.NewGoKaZerolog(ctx)),
+		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithConfig(saramaConfig, tmc)),
+		goka.WithConsumerGroupBuilder(goka.ConsumerGroupBuilderWithConfig(saramaConfig)),
 		goka.WithConsumerSaramaBuilder(goka.SaramaConsumerBuilderWithConfig(saramaConfig)),
+		goka.WithProducerBuilder(goka.ProducerBuilderWithConfig(saramaConfig)),
+		goka.WithLogger(internal_logger.NewGoKaZerolog(ctx)),
 	)
 	if err != nil {
 		log.Fatal().Msgf("error creating processor: %v", err)
@@ -189,25 +166,28 @@ func main() {
 	// In production systems however, check whether you really want to read the whole topic on first start, which
 	// can be a lot of messages.
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
-	goka.ReplaceGlobalConfig(config)
 	saramaConfig := getSASLConfig()
+	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
+	goka.ReplaceGlobalConfig(saramaConfig)
 
-	// this works
-	producer, err := NewProducerForAzureEventHub()
-	if err != nil {
-		log.Fatal().Msgf("Error creating producer: %v", err)
-	}
-	part, off, err := producer.SendMessage(&sarama.ProducerMessage{
-		Topic:     "cloudevents",
-		Key:       sarama.StringEncoder("test"),
-		Value:     sarama.StringEncoder("some data"),
-		Timestamp: time.Now(),
-	})
-	if err != nil {
-		log.Fatal().Msgf("Error sending message: %v", err)
-	}
-	log.Printf("Message sent to partition %d at offset %d", part, off)
-
+	/*
+		// this works
+		producer, err := NewProducerForAzureEventHub()
+		if err != nil {
+			log.Fatal().Msgf("Error creating producer: %v", err)
+		}
+		part, off, err := producer.SendMessage(&sarama.ProducerMessage{
+			Topic:     "cloudevents",
+			Key:       sarama.StringEncoder("test"),
+			Value:     sarama.StringEncoder("some data"),
+			Timestamp: time.Now(),
+		})
+		if err != nil {
+			log.Fatal().Msgf("Error sending message: %v", err)
+		}
+		log.Printf("Message sent to partition %d at offset %d", part, off)
+		return
+	*/
 	tm, err := goka.NewTopicManager(brokers, saramaConfig, tmc)
 	if err != nil {
 		log.Fatal().Msgf("Error creating topic manager: %v", err)
@@ -225,7 +205,7 @@ func main() {
 // NewProducerForAzureEventHub creates a producer for Azure event hub based on destination config
 func NewProducerForAzureEventHub() (sarama.SyncProducer, error) {
 
-	config := getConfig2()
+	config := getSASLConfig()
 
 	producer, err := sarama.NewSyncProducer(brokers, config)
 
